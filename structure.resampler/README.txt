@@ -69,6 +69,9 @@ calculated as follows: for a given statistic, the script counts the number of re
 that have a p-value <= 0.05, and then divides this count by the total number of
 replicates.
 
+These results do not contain any p-value corrections, such as Bonferroni, Benjamini-
+Yekutieli, etc.
+
 IMPORTANT:
 The script will write over any files that have the same name as the output files, so if
 your working directory contains files or folders with identical names to what the outputs 
