@@ -29,21 +29,47 @@ application and the arl_run.ars file. Import your dataset into R. Make sure the
 required libraries are loaded. Run the chunk containing code for the molecular 
 marker you are using (resample_microsat, resample_snp, or resample_mtdna). This 
 only needs to be done once per R session. Use resample_X() to run the script, 
-where X indicates the marker type. The resample_X command requires eight arguments:
+where X indicates the marker. The resample_X command requires eight arguments:
 
 df- The name of the dataframe to be resampled 
 np- The number of populations in the dataset 
 sind- The number of individuals to sample from each population
-sloci- The number of loci to sample ut- the type of marker used, in quotes "".
-"MICROSAT" for microsatellites, "STANDARD" for SNPS, or "DNA" for mitochondrial
-sequence 
+sloci- The number of loci to sample 
+ut- the type of marker used, in quotes "". "MICROSAT" for microsatellites, 
+"STANDARD" for SNPS, or "DNA" for mitochondrial sequence 
 md- the missing data character in your dataset, in quotes "". Often "?", "0", or "-9" 
-title- will be used as the title name in the Arlequin file. Must be in quotes "". 
+title- will be used as both the output file names and the title names in each Arlequin 
+file. Must be in quotes "". 
 n.reps- The number of replicates to perform
 Examples are provided in the script file.
 
-Notes: This script can create a lot of files (approximately seven per replicate). 
+Note:
 If the value of sind is larger than the number of samples in a population, the 
 analysis will be performed with all individuals in that population.
 
-Status: Currently making the finishing touches. Script will be up by 4/1/16.
+Output:
+In the working directory input by the user, the script will create an Arlequin
+file and a folder containing the Arlequin results files for each subsample 
+replicate. Therefore, a large number of replicates will create a large number 
+of files in the working directory. At the end of running, the script moves all 
+the Arlequin formatted files into a new folder named "arp". Two excel files are 
+created with results:
+
+1. Results_Reps.csv
+This file contains the Arlequin results for each individual replicate. Results 
+include the Fst and p-value from the AMOVA and each pairwise comparison along 
+with the overall p-value from the Exact Test. 
+2. Results_Summary.csv
+This file contains summary results across all replicates. It contains the mean Fst,
+standard deviation about Fst, and relative standard deviation (standard deviation
+divided by Fst) for the AMOVA and each pairwise comparison. It also contains the 
+mean and standard deviation for p-values from the AMOVA, pairwise comparisons, and
+Exact Test. Finally, it contains the proportion of significant replicates. This is 
+calculated as follows: for a given statistic, the script counts the number of replicates 
+that have a p-value <= 0.05, and then divides this count by the total number of
+replicates.
+
+IMPORTANT:
+The script will write over any files that have the same name as the output files, so if
+your working directory contains files or folders with identical names to what the outputs 
+will be, either rename them or move them to avoid losing important files.
