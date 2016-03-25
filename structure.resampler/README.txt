@@ -40,6 +40,7 @@ sequence
 md- the missing data character in your dataset, in quotes "". Often "?", "0", or "-9" 
 title- will be used as the title name in the Arlequin file. Must be in quotes "". 
 n.reps- The number of replicates to perform
+Examples are provided in the script file.
 
 Notes: This script can create a lot of files (approximately seven per replicate). 
 If the value of sind is larger than the number of samples in a population, the 
