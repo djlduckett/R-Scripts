@@ -37,14 +37,12 @@ sind- The number of individuals to sample from each population
 sloci- The number of loci to sample ut- the type of marker used, in quotes "".
 "MICROSAT" for microsatellites, "STANDARD" for SNPS, or "DNA" for mitochondrial
 sequence 
-md- the missing data character in your dataset, in quotes "". Often "?", "0", 
-or "-9" 
+md- the missing data character in your dataset, in quotes "". Often "?", "0", or "-9" 
 title- will be used as the title name in the Arlequin file. Must be in quotes "". 
 n.reps- The number of replicates to perform
 
-Notes: This script can create a lot of files (approximately seven per
-replicate). If the value of sind is larger than the number of samples in a
-population, the analysis will be performed with all individuals in that
-population.
+Notes: This script can create a lot of files (approximately seven per replicate). 
+If the value of sind is larger than the number of samples in a population, the 
+analysis will be performed with all individuals in that population.
 
 Status: Currently making the finishing touches. Script will be up by 4/1/16.
