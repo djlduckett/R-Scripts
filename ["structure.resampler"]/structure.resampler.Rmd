@@ -1,0 +1,986 @@
+
+structure.resampler
+
+
+
+```{r}
+resample_microsat(microsat_data, 3, 3, 2, "MICROSAT", "0", "microsat_test", 10)
+```
+
+```{r}
+resample_microsat<- function(df, np, sind, sloci, ut, md, title, n.reps){ #df, num pops, selectninds, selectnloci, markertype, missing data character, title 
+  
+  w.d<- getwd()
+  
+  reps<- data.frame() #make empty data frame for reps
+  z.a=22+(2*np)
+  z.e=29+(2*np)
+  j=1
+  for(replicate in 1:n.reps){
+    
+    loci.position = seq(3,ncol(df),2) #sequence of loci using allele 1
+    columns1<- sample(loci.position, size = sloci, replace = FALSE) #sample loci
+    columns.combine<- c(columns1, columns1 + 1) #include allele 2
+    columns.sort<- sort(columns.combine) #put allele 1 and 2 next to each other
+    cols<- c(1,2) #columns with sample name and region
+    frames <- split(df, df[,2], drop = FALSE) #make list of df by region
+    resample<- data.frame() #make empty df
+  
+    for (frame in frames){ #for each region df
+      if (nrow(frame) < sind){ #if sample size is larger than num. individuals
+        rows1<- sample(1:nrow(frame), size=nrow(frame), replace=FALSE) #use all
+      } 
+      
+      else {
+        rows1<- sample(1:nrow(frame),size=sind,replace=FALSE) #sample rows  
+      }
+      
+      resample01<- frame[rows1,columns.sort] #merge new inds and loci into 1 df
+      resample02<- frame[rows1,cols] #get sample and region info for chosen samps
+      resample03<- cbind(resample02, resample01) #merge resampled with info
+      resample<- rbind(resample,resample03) #append for each region
+    
+    }
+
+    gd=1
+  
+    frames2 <- split(resample, resample[,2], drop = FALSE) #split new df by reg
+
+    reg.names<- as.vector(resample[,2]) #get region names
+    reg.names2<- unique(unlist(reg.names, use.names=TRUE)) #keep unique regions
+    reg.names3<- sort(reg.names2) #sort alphabetically
+    reg.names4<- append(reg.names3, "blank", after=0) #to be used in parsing
+    
+    fileConn<- file(sprintf("%s%s.arp", title,j), "wt")
+    writeLines('[Profile]', fileConn)
+    cat('\n', file=fileConn)
+    cat('Title="', title, sep ="", file=fileConn)
+    cat('"', file=fileConn)
+    cat('\n', file=fileConn)
+    cat('NbSamples=', np, sep="", file=fileConn) #input num pops
+    cat('\n', file=fileConn)
+    cat('DataType=', ut, sep="", file=fileConn) #input ut
+    cat('\n', file=fileConn)
+    cat('GenotypicData=', gd, sep="", file=fileConn) #input ploidy
+    cat('\n', file=fileConn)
+    writeLines('GameticPhase=0', fileConn)
+    writeLines('LocusSeparator=TAB', fileConn) #what to use as locus separator?
+    cat('MissingData="', md, sep="", file=fileConn)
+    cat('"', file=fileConn)
+    cat('\n', file=fileConn)
+    cat('\n', file=fileConn)
+    writeLines('[Data]', fileConn)
+    cat('\n', file=fileConn)
+    writeLines('[[Samples]]', fileConn)
+    cat('\n', file=fileConn)
+    close(fileConn)
+
+    i=1
+
+    for (frame2 in frames2){ #for each region
+      a1<- data.frame(frame2[seq(3,ncol(frame2),2)]) #make df for allele 1
+      a1.1<- as.data.frame(append(a1,1,after=0)) #add column of 1's
+      a1.2<- cbind(frame2[1], a1.1) #add sample names
+      a2<- data.frame(frame2[seq(4,ncol(frame2),2)]) #make df for allele 2
+      a2.1<- as.data.frame(append(a2,"",after=0)) #add blank column in front
+      a2.2<- as.data.frame(append(a2.1,"",after=0)) #add blank column in front
+      colnames(a2.2)<- colnames(a1.2) #match column names
+      aa1<- data.frame(lapply(a1.2, as.character), stringsAsFactors = FALSE) 
+      aa2<- data.frame(lapply(a2.2, as.character), stringsAsFactors = FALSE)
+      afinal<- bind_rows(aa1,aa2) #combine df for each allele
+      afinal2<- afinal[kronecker(1:nrow(aa1), c(0,nrow(aa1)), "+"), ] #reorder rows
+
+      fileConn<- file(sprintf("%s%s.arp", title,j), "at")
+      cat('SampleName="', as.character(reg.names3[i]), sep="", file=fileConn)
+      cat('"', file=fileConn)
+      cat('\n', file=fileConn)
+      cat('SampleSize= ', nrow(frame2), sep="", file=fileConn)
+      cat('\n', file=fileConn)
+      writeLines('SampleData= {', fileConn)
+      cat('\n', file=fileConn)
+      write.table(afinal2, file = fileConn, quote = FALSE, sep = "\t", na = "", row.names = FALSE, col.names = FALSE)
+      writeLines('}', fileConn)
+      cat('\n', file=fileConn)
+      close(fileConn)
+      i=i+1
+    }
+
+    fileConn<- file(sprintf("%s%s.arp", title,j), "at")
+    writeLines('[[Structure]]', fileConn)
+    writeLines('StructureName=""', fileConn)
+    writeLines('NbGroups=1', fileConn)
+    writeLines('Group={', fileConn)
+    close(fileConn)
+
+    for (name in reg.names3){
+      fileConn<- file(sprintf("%s%s.arp", title,j), "at")
+      cat('\t"', name, sep="", file=fileConn)
+      cat('"', file=fileConn)
+      cat('\n', file=fileConn)
+      close(fileConn)
+    }
+
+    fileConn<- file(sprintf("%s%s.arp", title,j), "at")
+    writeLines('}', fileConn)
+    close(fileConn)
+
+    
+    
+    
+    x = sprintf('%s%s', title,j) #create output name by replicate number
+    system(sprintf("arlecore.exe %s.arp arl_run.ars", x)) #run arlecore
+    y= sprintf("%s.res", x) #identify results folder
+    setwd(sprintf("%s/%s", w.d,y)) #change directory to results folder
+
+    data<- xmlParse(sprintf("%s%s.xml", title,j)) #import and parse
+    amova<- data[[sprintf("//data[%s]", z.a)]] #select data node specific to AMOVA #will change depending on arlecore settings
+    amova2<- xmlToList(amova) #extract info to list
+    amova3<- toString(amova2) #turn list to string
+
+    amova.fst<- strsplit(amova3, "Fixation Index      ") #split string to find Fst
+    amova.fst2<- amova.fst[[1]][2] #select Fst info
+    amova.fst3<- substr(amova.fst2, 11, 18) #select Fst value
+    amova.fst4<- str_trim(amova.fst3) #trim whitespace
+
+    amova.p<- strsplit(amova3, "P-value") #split string to find p-value
+    amova.p2<- amova.p[[1]][2] #select p-value info
+    amova.p3<- substr(amova.p2,5,11) #select p-value
+
+    rep<- cbind(amova.fst4,amova.p3) #create dataframe with fst and p-value for rep
+    rep<- cbind(j, rep) #add column with rep number
+    
+    exact<- data[[sprintf("//data[%s]", z.e)]] #select data node specific to AMOVA #will change depending on arlecore settings
+    exact2<- xmlToList(exact) #extract info to list
+    exact3<- toString(exact2) #turn list to string
+
+    exact.p<- strsplit(exact3, "Non-differentiation: Exact P value") #split string to find p-value
+    exact.p2<- exact.p[[1]][2] #select p-value info
+    exact.p3<- substr(exact.p2,4,10) #select p-value
+    rep<- cbind(rep,exact.p3)
+    
+    
+    pair.fst<- data[["//PairFstMat"]]
+    pair.fst2<- xmlToList(pair.fst) #extract info to list
+    pair.fst3<- toString(pair.fst2) #turn list to string
+    pair.fst4<- strsplit(pair.fst3, split="\n") #separate by line
+    pair.fst4<- str_trim(pair.fst4[[1]][5:(length(reg.names3)+5)]) #remove unnecessary row
+    pair.fst5<- strsplit(pair.fst4, "\\s+") #separate by space
+
+    names.fst<- c()
+    pair.fst.vector<- c()
+    for(r in 2:(length(reg.names3))+1){
+      for(s in 2:(r-1)){
+        pair.fst.vector<- append(pair.fst.vector, pair.fst5[[r]][s], after=length(pair.fst.vector)) #append each pairwise value to end of vector
+        temp.name<- sprintf("Fst_%s:%s", reg.names4[s], reg.names4[r])
+        names.fst<- append(names.fst, temp.name, after=length(names.fst)) #make vector of comparison labels
+      }
+    }
+    
+    
+    pair.p<- data[["//PairFstPvalMat"]]
+    pair.p2<- xmlToList(pair.p) #extract info to list
+    pair.p3<- toString(pair.p2) #turn list to string
+    pair.p4<- strsplit(pair.p3, split="\n") #separate by line
+    pair.p4<- str_trim(pair.p4[[1]][3:(length(reg.names3)+4)]) #remove unnecessary row
+    pair.p5<- strsplit(pair.p4, "\\s+") #separate by space
+
+    pair.p<- data[["//PairFstPvalMat"]]
+    pair.p2<- xmlToList(pair.p) #extract info to list
+    pair.p3<- toString(pair.p2) #turn list to string
+    pair.p4<- strsplit(pair.p3, split="\n") #separate by line
+    pair.p4<- str_trim(pair.p4[[1]][3:(length(reg.names3)+3)]) #remove unnecessary row
+    pair.p5<- strsplit(pair.p4, "\\s+") #separate by space
+
+
+    names.p<- c()
+    pair.p.vector<- c()
+    for(r in 2:(length(reg.names3))+1){
+      for(s in 2:(r-1)){
+        pair.p.vector<- append(pair.p.vector, pair.p5[[r]][s], after=length(pair.p.vector)) #append each pairwise value to end of vector
+        temp.name<- sprintf("P_%s:%s", reg.names4[s], reg.names4[r])
+        names.p<- append(names.p, temp.name, after=length(names.p)) #make vector of comparison labels
+    
+      }
+    }
+    pair.p.vector<- sapply(strsplit(as.character(pair.p.vector), split= "+", fixed=TRUE), function(x) (x[1])) #remove uncertainty of p-value
+    
+    pair.vector<- c()
+    pair.names<- c()
+    for (v in 1:length(pair.fst.vector)){
+      pair.vector<- append(pair.vector, pair.fst.vector[v], after=length(pair.vector)) #add fst for 1 comparison
+      pair.vector<- append(pair.vector, pair.p.vector[v], after=length(pair.vector)) #add p-value for 1 comparison
+      pair.names<- append(pair.names, names.fst[v], after=length(pair.names)) #add fst name for 1 comparison
+      pair.names<- append(pair.names, names.p[v], after=length(pair.names)) #add p-value name for 1 comparison
+    }
+    pair.mat<- matrix(pair.vector, nrow=1, ncol=length(pair.vector)) #turn to matrix
+    pair.df<- as.data.frame(pair.mat) #convert to df
+    colnames(pair.df)<- pair.names #add column names
+    pair.df[]<- lapply(pair.df, as.character)
+    pair.df[]<- lapply(pair.df, as.numeric) #make all values numeric
+    
+
+    rep<- data.frame(rep, pair.df) #add pairwise comparisons to rep df
+    
+    reps<- rbind(reps,rep) #append each rep to dataframe
+
+    setwd(sprintf("%s", w.d)) #return to arp directory
+
+    file.remove("arl_run.txt", "arlequin.ini", "randseed.txt") #remove unnecessary files
+    
+    
+    
+    j=j+1
+    
+  }
+  
+  reps.names<- c("Rep", "AMOVA_Fst", "AMOVA_pvalue", "Exact_pvalue")
+  reps.names2<- append(reps.names, pair.names, after=length(reps.names))
+  colnames(reps)<- reps.names2 #change column names
+  
+  fileConn<- file("Results_Reps.csv", "wt") 
+  write.table(reps, file = fileConn, quote = FALSE, sep = ",", na = "", row.names = FALSE, col.names = TRUE)
+  close(fileConn)
+  
+  reps<- read.csv("Results_Reps.csv", header=TRUE, sep=",", stringsAsFactors = FALSE)
+  
+  mean.fst<- mean(reps$AMOVA_Fst) #mean of rep fst values
+  sd.fst<- sd(reps$AMOVA_Fst) #absolute sd of rep fst values
+  sums<- cbind(mean.fst, sd.fst)
+  sd.fst2<- sd.fst/mean.fst #relative sd of rep fst values
+  sums<- cbind(sums, sd.fst2)
+  mean.p<- mean(reps$AMOVA_pvalue)
+  sums<- cbind(sums, mean.p)
+  sd.p<- sd(reps$AMOVA_pvalue)
+  sums<- cbind(sums, sd.p)
+  sig.pos<- c(which(reps$AMOVA_pvalue <= 0.05)) #store which values are significant
+  sig<- length(sig.pos)/n.reps #divide by number of reps
+  sums<- cbind(sums, sig)
+  
+  mean.pe<- mean(reps$Exact_pvalue)
+  sums<- cbind(sums, mean.pe)
+  sd.pe<- sd(reps$Exact_pvalue)
+  sums<- cbind(sums, sd.pe)
+  sig.pose<- c(which(reps$Exact_pvalue <= 0.05))
+  sig.e<- length(sig.pose)/n.reps
+  sums<- cbind(sums, sig.e)
+  
+  pairs<- reps[5:length(reps)]
+  pairs.fst<- pairs[c(TRUE,FALSE)]
+  pairs.p<- pairs[c(FALSE,TRUE)]
+  names.sums.fst<- colnames(pairs.fst)
+  names.sums.p<- colnames(pairs.p)
+  
+  mean.pair.fst<- apply(pairs.fst, 2, mean)
+  sd.pair.fst<- apply(pairs.fst, 2, sd)
+  relsd.pair.fst<- sd.pair.fst/mean.pair.fst
+  mean.pair.p<- apply(pairs.p, 2, mean)
+  sd.pair.p<- apply(pairs.p, 2, sd)
+  
+  pairs.sums<- c()
+  names.pairs.sums<- c()
+  for (s in 1:length(pairs.fst)){
+    pairs.sums<- append(pairs.sums, mean.pair.fst[s], after=length(pairs.sums)) #add mean fst
+    name.mean.fst<- sprintf("Mean_%s", names.sums.fst[s]) #create name
+    names.pairs.sums<- append(names.pairs.sums, name.mean.fst, after=length(names.pairs.sums)) #add name
+    pairs.sums<- append(pairs.sums, sd.pair.fst[s], after=length(pairs.sums)) #add sd fst
+    name.sd.fst<- sprintf("SD_%s", names.sums.fst[s]) #create name
+    names.pairs.sums<- append(names.pairs.sums, name.sd.fst, after=length(names.pairs.sums)) #add name
+    pairs.sums<- append(pairs.sums, relsd.pair.fst[s], after=length(pairs.sums)) #add relative sd
+    name.relsd.fst<- sprintf("RelSD_%s", names.sums.fst[s]) #create name
+    names.pairs.sums<- append(names.pairs.sums, name.relsd.fst, after=length(names.pairs.sums)) #add name
+    pairs.sums<- append(pairs.sums, mean.pair.p[s], after=length(pairs.sums)) #add mean p-value
+    name.mean.p<- sprintf("Mean_%s", names.sums.p[s]) #create name
+    names.pairs.sums<- append(names.pairs.sums, name.mean.p, after=length(names.pairs.sums)) #add name
+    pairs.sums<- append(pairs.sums, sd.pair.p[s], after=length(pairs.sums)) #add sd p-value
+    name.sd.p<- sprintf("SD_%s", names.sums.p[s]) #create name
+    names.pairs.sums<- append(names.pairs.sums, name.sd.p, after=length(names.pairs.sums)) #add name
+    sig.pairs.pos<- c(which(pairs.p[s] <= 0.05)) #which reps are significant
+    sig.pairs<- length(sig.pairs.pos)/n.reps #proportion of sig reps
+    pairs.sums<- append(pairs.sums, sig.pairs, after=length(pairs.sums)) #add proportion of sig reps
+    name.sig.p<- sprintf("Sig_%s", names.sums.p[s]) #create name
+    names.pairs.sums<- append(names.pairs.sums, name.sig.p, after=length(names.pairs.sums)) #add name
+  }
+  
+  pairs.sums.mat<- matrix(pairs.sums, ncol=length(pairs.sums)) #convert to matrix
+  pairs.sums.df<- as.data.frame(pairs.sums.mat) #convert to df
+  sums<- cbind(sums, pairs.sums.df) #add pairwise comparisons to summary df
+  
+  names.sums<- c("Mean_Fst", "SD_Fst", "RelSD_Fst", "AMOVA_Mean_P", "AMOVA_sd_P", "AMOVA_Sig_P", "Exact_Mean_P", "Exact_sd_P", "Exact_Sig_P")
+  names.sums2<- append(names.sums, names.pairs.sums, after=length(names.sums)) #add pairwise names to sumary names
+  colnames(sums)<- names.sums2
+      
+  fileConn<- file("Results_Summary.csv", "wt") 
+  write.table(sums, file = fileConn, quote = FALSE, sep = ",", na = "", row.names = FALSE, col.names = TRUE)
+  close(fileConn)
+  
+  if (dir.exists("arp")==FALSE){
+    dir.create("arp")
+  }
+  
+  w.d2<- sprintf("%s/arp/", w.d)
+  arp.files<- Sys.glob("*.arp")
+  file.copy(arp.files, w.d2, overwrite=TRUE, recursive=FALSE, copy.mode=TRUE, copy.date=TRUE)
+  file.remove(arp.files)
+  #res.files<- Sys.glob("*.res")
+  #Sys.chmod(res.files, mode="777")
+  #file.copy(res.files, "C:/Users/coc.drew.duckett/Desktop/arlecore/results/",  overwrite=TRUE, recursive=FALSE, copy.mode=TRUE, copy.date=TRUE)
+  #file.remove(res.files)
+  
+}
+```
+
+
+
+
+
+
+
+```{r}
+resample_snp(snp_data, 3, 3, 4, "STANDARD", "-9", "snp_test", 10)
+```
+
+```{r}
+resample_snp<- function(df, np, sind, sloci, ut, md, title, n.reps){ #df, num pops, selectninds, selectnloci, markertype, missing data character, title 
+  
+  df[df=="TRUE"]<- "T" #replaces TRUE(from import) with T
+  
+  w.d<- getwd()
+  
+  reps<- data.frame() #make empty data frame for reps
+  z.a=16+(2*np)
+  z.e=23+(2*np)
+  j=1
+  for (replicate in 1:n.reps){
+    
+    loci.position = seq(3,ncol(df),2) #sequence of loci using allele 1
+    columns1<- sample(loci.position, size = sloci, replace = FALSE) #sample loci
+    columns.combine<- c(columns1, columns1 + 1) #include allele 2
+    columns.sort<- sort(columns.combine) #put allele 1 and 2 next to each other
+    cols<- c(1,2) #columns with sample name and region
+    frames <- split(df, df[,2], drop = FALSE) #make list of df by region
+    resample<- data.frame() #make empty df
+  
+    for (frame in frames){ #for each region df
+      
+      if (nrow(frame) < sind){ #if sample size is larger than num. individuals
+        rows1<- sample(1:nrow(frame), size=nrow(frame), replace=FALSE) #use all
+      } 
+      
+      else {
+        rows1<- sample(1:nrow(frame),size=sind,replace=FALSE) #sample rows  
+      }
+      
+      resample01<- frame[rows1,columns.sort] #merge new inds and loci into 1 df
+      resample02<- frame[rows1,cols] #get sample and region info for chosen samps
+      resample03<- cbind(resample02, resample01) #merge resampled with info
+      resample<- rbind(resample,resample03) #append for each region
+    
+    }
+
+    gd=1
+  
+    frames2 <- split(resample, resample[,2], drop = FALSE) #split new df by reg
+
+    reg.names<- as.vector(resample[,2]) #get region names
+    reg.names2<- unique(unlist(reg.names, use.names=TRUE)) #keep unique regions
+    reg.names3<- sort(reg.names2) #sort alphabetically
+    reg.names4<- append(reg.names3, "blank", after=0) #to be used in parsing
+  
+    fileConn<- file(sprintf("%s%s.arp", title,j), "wt")
+    writeLines('[Profile]', fileConn)
+    cat('\n', file=fileConn)
+    cat('Title="', title, sep ="", file=fileConn)
+    cat('"', file=fileConn)
+    cat('\n', file=fileConn)
+    cat('NbSamples=', np, sep="", file=fileConn) #input num pops
+    cat('\n', file=fileConn)
+    cat('DataType=', ut, sep="", file=fileConn) #input ut
+    cat('\n', file=fileConn)
+    cat('GenotypicData=', gd, sep="", file=fileConn) #input ploidy
+    cat('\n', file=fileConn)
+    writeLines('GameticPhase=0', fileConn)
+    writeLines('LocusSeparator=TAB', fileConn) #what to use as locus separator?
+    cat('MissingData="', md, sep="", file=fileConn)
+    cat('"', file=fileConn)
+    cat('\n', file=fileConn)
+    cat('\n', file=fileConn)
+    writeLines('[Data]', fileConn)
+    cat('\n', file=fileConn)
+    writeLines('[[Samples]]', fileConn)
+    cat('\n', file=fileConn)
+    close(fileConn)
+
+    i=1
+
+    for (frame2 in frames2){ #for each region
+      a1<- data.frame(frame2[seq(3,ncol(frame2),2)]) #make df for allele 1
+      a1.1<- as.data.frame(append(a1,1,after=0)) #add column of 1's
+      a1.2<- cbind(frame2[1], a1.1) #add sample names
+      a2<- data.frame(frame2[seq(4,ncol(frame2),2)]) #make df for allele 2
+      a2.1<- as.data.frame(append(a2,"",after=0)) #add blank column in front
+      a2.2<- as.data.frame(append(a2.1,"",after=0)) #add blank column in front
+      colnames(a2.2)<- colnames(a1.2) #match column names
+      aa1<- data.frame(lapply(a1.2, as.character), stringsAsFactors = FALSE) 
+      aa2<- data.frame(lapply(a2.2, as.character), stringsAsFactors = FALSE)
+      afinal<- bind_rows(aa1,aa2) #combine df for each allele
+      afinal2<- afinal[kronecker(1:nrow(aa1), c(0,nrow(aa1)), "+"), ] #reorder rows
+
+      fileConn<- file(sprintf("%s%s.arp", title,j), "at")
+      cat('SampleName="', as.character(reg.names3[i]), sep="", file=fileConn)
+      cat('"', file=fileConn)
+      cat('\n', file=fileConn)
+      cat('SampleSize= ', nrow(frame2), sep="", file=fileConn)
+      cat('\n', file=fileConn)
+      writeLines('SampleData= {', fileConn)
+      cat('\n', file=fileConn)
+      write.table(afinal2, file = fileConn, quote = FALSE, sep = "\t", na = "", row.names = FALSE, col.names = FALSE)
+      writeLines('}', fileConn)
+      cat('\n', file=fileConn)
+      close(fileConn)
+      i=i+1
+    }
+
+    fileConn<- file(sprintf("%s%s.arp", title,j), "at")
+    writeLines('[[Structure]]', fileConn)
+    writeLines('StructureName=""', fileConn)
+    writeLines('NbGroups=1', fileConn)
+    writeLines('Group={', fileConn)
+    close(fileConn)
+
+    for (name in reg.names3){
+      fileConn<- file(sprintf("%s%s.arp", title,j), "at")
+      cat('\t"', name, sep="", file=fileConn)
+      cat('"', file=fileConn)
+      cat('\n', file=fileConn)
+      close(fileConn)
+    }
+
+    fileConn<- file(sprintf("%s%s.arp", title,j), "at")
+    writeLines('}', fileConn)
+    close(fileConn)
+    
+    
+    
+    x = sprintf('%s%s', title,j) #create output name by replicate number
+    system(sprintf("arlecore.exe %s.arp arl_run.ars", x)) #run arlecore
+    y= sprintf("%s.res", x) #identify results folder
+    setwd(sprintf("%s/%s", w.d,y)) #change directory to results folder
+
+    data<- xmlParse(sprintf("%s%s.xml", title,j)) #import and parse
+    amova<- data[[sprintf("//data[%s]", z.a)]] #select data node specific to AMOVA #will change depending on arlecore settings
+    amova2<- xmlToList(amova) #extract info to list
+    amova3<- toString(amova2) #turn list to string
+
+    amova.fst<- strsplit(amova3, "Fixation Index      ") #split string to find Fst
+    amova.fst2<- amova.fst[[1]][2] #select Fst info
+    amova.fst3<- substr(amova.fst2, 11, 18) #select Fst value
+    amova.fst4<- str_trim(amova.fst3) #trim whitespace
+
+    amova.p<- strsplit(amova3, "P-value") #split string to find p-value
+    amova.p2<- amova.p[[1]][2] #select p-value info
+    amova.p3<- substr(amova.p2,5,11) #select p-value
+
+    rep<- cbind(amova.fst4,amova.p3) #create dataframe with fst and p-value for rep
+    rep<- cbind(j, rep) #add column with rep number
+    
+    exact<- data[[sprintf("//data[%s]", z.e)]] #select data node specific to AMOVA #will change depending on arlecore settings
+    exact2<- xmlToList(exact) #extract info to list
+    exact3<- toString(exact2) #turn list to string
+
+    exact.p<- strsplit(exact3, "Non-differentiation: Exact P value") #split string to find p-value
+    exact.p2<- exact.p[[1]][2] #select p-value info
+    exact.p3<- substr(exact.p2,4,10) #select p-value
+    rep<- cbind(rep,exact.p3)
+    
+    pair.fst<- data[["//PairFstMat"]]
+    pair.fst2<- xmlToList(pair.fst) #extract info to list
+    pair.fst3<- toString(pair.fst2) #turn list to string
+    pair.fst4<- strsplit(pair.fst3, split="\n") #separate by line
+    pair.fst4<- str_trim(pair.fst4[[1]][5:(length(reg.names3)+5)]) #remove unnecessary row
+    pair.fst5<- strsplit(pair.fst4, "\\s+") #separate by space
+
+    names.fst<- c()
+    pair.fst.vector<- c()
+    for(r in 2:(length(reg.names3))+1){
+      for(s in 2:(r-1)){
+        pair.fst.vector<- append(pair.fst.vector, pair.fst5[[r]][s], after=length(pair.fst.vector)) #append each pairwise value to end of vector
+        temp.name<- sprintf("Fst_%s:%s", reg.names4[s], reg.names4[r])
+        names.fst<- append(names.fst, temp.name, after=length(names.fst)) #make vector of comparison labels
+      }
+    }
+    
+    
+    pair.p<- data[["//PairFstPvalMat"]]
+    pair.p2<- xmlToList(pair.p) #extract info to list
+    pair.p3<- toString(pair.p2) #turn list to string
+    pair.p4<- strsplit(pair.p3, split="\n") #separate by line
+    pair.p4<- str_trim(pair.p4[[1]][3:(length(reg.names3)+4)]) #remove unnecessary row
+    pair.p5<- strsplit(pair.p4, "\\s+") #separate by space
+
+    pair.p<- data[["//PairFstPvalMat"]]
+    pair.p2<- xmlToList(pair.p) #extract info to list
+    pair.p3<- toString(pair.p2) #turn list to string
+    pair.p4<- strsplit(pair.p3, split="\n") #separate by line
+    pair.p4<- str_trim(pair.p4[[1]][3:(length(reg.names3)+3)]) #remove unnecessary row
+    pair.p5<- strsplit(pair.p4, "\\s+") #separate by space
+
+
+    names.p<- c()
+    pair.p.vector<- c()
+    for(r in 2:(length(reg.names3))+1){
+      for(s in 2:(r-1)){
+        pair.p.vector<- append(pair.p.vector, pair.p5[[r]][s], after=length(pair.p.vector)) #append each pairwise value to end of vector
+        temp.name<- sprintf("P_%s:%s", reg.names4[s], reg.names4[r])
+        names.p<- append(names.p, temp.name, after=length(names.p)) #make vector of comparison labels
+    
+      }
+    }
+    pair.p.vector<- sapply(strsplit(as.character(pair.p.vector), split= "+", fixed=TRUE), function(x) (x[1])) #remove uncertainty of p-value
+    
+    pair.vector<- c()
+    pair.names<- c()
+    for (v in 1:length(pair.fst.vector)){
+      pair.vector<- append(pair.vector, pair.fst.vector[v], after=length(pair.vector)) #add fst for 1 comparison
+      pair.vector<- append(pair.vector, pair.p.vector[v], after=length(pair.vector)) #add p-value for 1 comparison
+      pair.names<- append(pair.names, names.fst[v], after=length(pair.names)) #add fst name for 1 comparison
+      pair.names<- append(pair.names, names.p[v], after=length(pair.names)) #add p-value name for 1 comparison
+    }
+    pair.mat<- matrix(pair.vector, nrow=1, ncol=length(pair.vector)) #turn to matrix
+    pair.df<- as.data.frame(pair.mat) #convert to df
+    colnames(pair.df)<- pair.names #add column names
+    pair.df[]<- lapply(pair.df, as.character)
+    pair.df[]<- lapply(pair.df, as.numeric) #make all values numeric
+    
+
+    rep<- data.frame(rep, pair.df) #add pairwise comparisons to rep df
+    
+    reps<- rbind(reps,rep) #append each rep to dataframe
+
+    setwd(sprintf("%s", w.d)) #return to arp directory
+
+    file.remove("arl_run.txt", "arlequin.ini", "randseed.txt") #remove unnecessary files
+    
+    
+    
+    j=j+1
+    
+  }
+  
+  
+  reps.names<- c("Rep", "AMOVA_Fst", "AMOVA_pvalue", "Exact_pvalue")
+  reps.names2<- append(reps.names, pair.names, after=length(reps.names))
+  colnames(reps)<- reps.names2 #change column names
+  
+  fileConn<- file("Results_Reps.csv", "wt") 
+  write.table(reps, file = fileConn, quote = FALSE, sep = ",", na = "", row.names = FALSE, col.names = TRUE)
+  close(fileConn)
+  
+  reps<- read.csv("Results_Reps.csv", header=TRUE, sep=",")
+  
+  mean.fst<- mean(reps$AMOVA_Fst) #mean of rep fst values
+  sd.fst<- sd(reps$AMOVA_Fst) #absolute sd of rep fst values
+  sums<- cbind(mean.fst, sd.fst)
+  sd.fst2<- sd.fst/mean.fst #relative sd of rep fst values
+  sums<- cbind(sums, sd.fst2)
+  mean.p<- mean(reps$AMOVA_pvalue)
+  sums<- cbind(sums, mean.p)
+  sd.p<- sd(reps$AMOVA_pvalue)
+  sums<- cbind(sums, sd.p)
+  sig.pos<- c((which(reps$AMOVA_pvalue <= 0.05))) #store which values are significant
+  sig<- length(sig.pos)/n.reps #divide by number of reps
+  sums<- cbind(sums, sig)
+  
+  mean.pe<- mean(reps$Exact_pvalue)
+  sums<- cbind(sums, mean.pe)
+  sd.pe<- sd(reps$Exact_pvalue)
+  sums<- cbind(sums, sd.pe)
+  sig.pose<- c((which(reps$Exact_pvalue <= 0.05)))
+  sig.e<- length(sig.pose)/n.reps
+  sums<- cbind(sums, sig.e)
+  
+  pairs<- reps[5:length(reps)]
+  pairs.fst<- pairs[c(TRUE,FALSE)]
+  pairs.p<- pairs[c(FALSE,TRUE)]
+  names.sums.fst<- colnames(pairs.fst)
+  names.sums.p<- colnames(pairs.p)
+  
+  mean.pair.fst<- apply(pairs.fst, 2, mean)
+  sd.pair.fst<- apply(pairs.fst, 2, sd)
+  relsd.pair.fst<- sd.pair.fst/mean.pair.fst
+  mean.pair.p<- apply(pairs.p, 2, mean)
+  sd.pair.p<- apply(pairs.p, 2, sd)
+  
+  pairs.sums<- c()
+  names.pairs.sums<- c()
+  for (s in 1:length(pairs.fst)){
+    pairs.sums<- append(pairs.sums, mean.pair.fst[s], after=length(pairs.sums)) #add mean fst
+    name.mean.fst<- sprintf("Mean_%s", names.sums.fst[s]) #create name
+    names.pairs.sums<- append(names.pairs.sums, name.mean.fst, after=length(names.pairs.sums)) #add name
+    pairs.sums<- append(pairs.sums, sd.pair.fst[s], after=length(pairs.sums)) #add sd fst
+    name.sd.fst<- sprintf("SD_%s", names.sums.fst[s]) #create name
+    names.pairs.sums<- append(names.pairs.sums, name.sd.fst, after=length(names.pairs.sums)) #add name
+    pairs.sums<- append(pairs.sums, relsd.pair.fst[s], after=length(pairs.sums)) #add relative sd
+    name.relsd.fst<- sprintf("RelSD_%s", names.sums.fst[s]) #create name
+    names.pairs.sums<- append(names.pairs.sums, name.relsd.fst, after=length(names.pairs.sums)) #add name
+    pairs.sums<- append(pairs.sums, mean.pair.p[s], after=length(pairs.sums)) #add mean p-value
+    name.mean.p<- sprintf("Mean_%s", names.sums.p[s]) #create name
+    names.pairs.sums<- append(names.pairs.sums, name.mean.p, after=length(names.pairs.sums)) #add name
+    pairs.sums<- append(pairs.sums, sd.pair.p[s], after=length(pairs.sums)) #add sd p-value
+    name.sd.p<- sprintf("SD_%s", names.sums.p[s]) #create name
+    names.pairs.sums<- append(names.pairs.sums, name.sd.p, after=length(names.pairs.sums)) #add name
+    sig.pairs.pos<- c(which(pairs.p[s] <= 0.05)) #which reps are significant
+    sig.pairs<- length(sig.pairs.pos)/n.reps #proportion of sig reps
+    pairs.sums<- append(pairs.sums, sig.pairs, after=length(pairs.sums)) #add proportion of sig reps
+    name.sig.p<- sprintf("Sig_%s", names.sums.p[s]) #create name
+    names.pairs.sums<- append(names.pairs.sums, name.sig.p, after=length(names.pairs.sums)) #add name
+  }
+  
+  pairs.sums.mat<- matrix(pairs.sums, ncol=length(pairs.sums)) #convert to matrix
+  pairs.sums.df<- as.data.frame(pairs.sums.mat) #convert to df
+  sums<- cbind(sums, pairs.sums.df) #add pairwise comparisons to summary df
+
+  
+  names.sums<- c("Mean_Fst", "SD_Fst", "RelSD_Fst", "AMOVA_Mean_P", "AMOVA_sd_P", "AMOVA_Sig_P", "Exact_Mean_P", "Exact_sd_P", "Exact_Sig_P")
+  names.sums2<- append(names.sums, names.pairs.sums, after=length(names.sums)) #add pairwise names to sumary names
+  colnames(sums)<- names.sums2  
+
+      
+  fileConn<- file("Results_Summary.csv", "wt") 
+  write.table(sums, file = fileConn, quote = FALSE, sep = ",", na = "", row.names = FALSE, col.names = TRUE)
+  close(fileConn)
+  
+  if (dir.exists("arp")==FALSE){
+    dir.create("arp")
+  }
+  
+  w.d2<- sprintf("%s/arp/", w.d)
+  arp.files<- Sys.glob("*.arp")
+  file.copy(arp.files, w.d2, overwrite=TRUE, recursive=FALSE, copy.mode=TRUE, copy.date=TRUE)
+  file.remove(arp.files)
+  #res.files<- Sys.glob("*.res")
+  #Sys.chmod(res.files, mode="777")
+  #file.copy(res.files, "C:/Users/coc.drew.duckett/Desktop/arlecore/results/",  overwrite=TRUE, recursive=FALSE, copy.mode=TRUE, copy.date=TRUE)
+  #file.remove(res.files)
+    
+}
+```
+
+
+
+
+
+```{r}
+resample_mtdna(mtdna_data, 3, 3, 1, "DNA", "?", "mtdna_test", 10)
+```
+
+```{r}
+resample_mtdna<- function(df, np, sind, sloci, ut, md, title, n.reps){ #df, num pops, selectninds, selectnloci, markertype, missing data character, title 
+  
+  w.d<- getwd()
+  
+  reps<- data.frame() #make empty data frame for reps
+  z.a=17+(3*np)
+  z.e=24+(3*np)
+  j=1
+  for (replicate in 1:n.reps){
+    
+    cols<- c(1,2) #columns with sample name and region
+    frames <- split(df, df[,2], drop = FALSE) #make list of df by region
+    resample<- data.frame() #make empty df
+  
+    for (frame in frames){ #for each region df
+      
+      if (nrow(frame) < sind){ #if sample size is larger than num. individuals
+        rows1<- sample(1:nrow(frame), size=nrow(frame), replace=FALSE) #use all
+      } 
+      
+      else {
+        rows1<- sample(1:nrow(frame),size=sind,replace=FALSE) #sample rows  
+      }
+      resample01<- frame[rows1,3] #merge new inds and loci into 1 df
+      resample02<- frame[rows1,cols] #get sample and region info for chosen samps
+      resample03<- cbind(resample02, resample01) #merge resampled with info
+      resample<- rbind(resample,resample03) #append for each region
+    
+    }
+
+    gd=0
+  
+    frames2 <- split(resample, resample[,2], drop = FALSE) #split new df by reg
+
+    reg.names<- as.vector(resample[,2]) #get region names
+    reg.names2<- unique(unlist(reg.names, use.names=TRUE)) #keep unique regions
+    reg.names3<- sort(reg.names2) #sort alphabetically
+    reg.names4<- append(reg.names3, "blank", after=0) #to be used in parsing
+      
+    fileConn<- file(sprintf("%s%s.arp", title,j), "wt")
+    writeLines('[Profile]', fileConn)
+    cat('\n', file=fileConn)
+    cat('Title="', title, sep ="", file=fileConn)
+    cat('"', file=fileConn)
+    cat('\n', file=fileConn)
+    cat('NbSamples=', np, sep="", file=fileConn) #input num pops
+    cat('\n', file=fileConn)
+    cat('DataType=', ut, sep="", file=fileConn) #input ut
+    cat('\n', file=fileConn)
+    cat('GenotypicData=', gd, sep="", file=fileConn) #input ploidy
+    cat('\n', file=fileConn)
+    writeLines('GameticPhase=0', fileConn)
+    writeLines('LocusSeparator=TAB', fileConn) #what to use as locus separator?
+    cat('MissingData="', md, sep="", file=fileConn)
+    cat('"', file=fileConn)
+    cat('\n', file=fileConn)
+    cat('\n', file=fileConn)
+    writeLines('[Data]', fileConn)
+    cat('\n', file=fileConn)
+    writeLines('[[Samples]]', fileConn)
+    cat('\n', file=fileConn)
+    close(fileConn)
+
+    i=1
+
+    for (frame2 in frames2){ #for each region
+      a1<- data.frame(frame2[seq(3,ncol(frame2),2)]) #make df for allele 1
+      a1.1<- as.data.frame(append(a1,1,after=0)) #add column of 1's
+      a1.2<- cbind(frame2[1], a1.1) #add sample names
+      aa1<- data.frame(lapply(a1.2, as.character), stringsAsFactors = FALSE) 
+    
+      fileConn<- file(sprintf("%s%s.arp", title,j), "at")
+      cat('SampleName="', as.character(reg.names3[i]), sep="", file=fileConn)
+      cat('"', file=fileConn)
+      cat('\n', file=fileConn)
+      cat('SampleSize= ', nrow(frame2), sep="", file=fileConn)
+      cat('\n', file=fileConn)
+      writeLines('SampleData= {', fileConn)
+      cat('\n', file=fileConn)
+      write.table(aa1, file = fileConn, quote = FALSE, sep = "\t", na = "", row.names = FALSE, col.names = FALSE)
+      writeLines('}', fileConn)
+      cat('\n', file=fileConn)
+      close(fileConn)
+      i=i+1
+    }
+
+    fileConn<- file(sprintf("%s%s.arp", title,j), "at")
+    writeLines('[[Structure]]', fileConn)
+    writeLines('StructureName=""', fileConn)
+    writeLines('NbGroups=1', fileConn)
+    writeLines('Group={', fileConn)
+    close(fileConn)
+
+    for (name in reg.names3){
+      fileConn<- file(sprintf("%s%s.arp", title,j), "at")
+      cat('\t"', name, sep="", file=fileConn)
+      cat('"', file=fileConn)
+      cat('\n', file=fileConn)
+      close(fileConn)
+    }
+
+    fileConn<- file(sprintf("%s%s.arp", title,j), "at")
+    writeLines('}', fileConn)
+    close(fileConn) 
+    
+    
+    
+    x = sprintf('%s%s', title,j) #create output name by replicate number
+    system(sprintf("arlecore.exe %s.arp arl_run.ars", x)) #run arlecore
+    y= sprintf("%s.res", x) #identify results folder
+    setwd(sprintf("%s/%s", w.d,y)) #change directory to results folder
+
+    data<- xmlParse(sprintf("%s%s.xml", title,j)) #import and parse
+    amova<- data[[sprintf("//data[%s]", z.a)]] #select data node specific to AMOVA #will change depending on arlecore settings
+    amova2<- xmlToList(amova) #extract info to list
+    amova3<- toString(amova2) #turn list to string
+
+    amova.fst<- strsplit(amova3, "Fixation Index      ") #split string to find Fst
+    amova.fst2<- amova.fst[[1]][2] #select Fst info
+    amova.fst3<- substr(amova.fst2, 11, 18) #select Fst value
+    amova.fst4<- str_trim(amova.fst3) #trim whitespace
+
+    amova.p<- strsplit(amova3, "P-value") #split string to find p-value
+    amova.p2<- amova.p[[1]][2] #select p-value info
+    amova.p3<- substr(amova.p2,5,11) #select p-value
+
+    rep<- cbind(amova.fst4,amova.p3) #create dataframe with fst and p-value for rep
+    rep<- cbind(j, rep) #add column with rep number
+    
+    exact<- data[[sprintf("//data[%s]", z.e)]] #select data node specific to AMOVA #will change depending on arlecore settings
+    exact2<- xmlToList(exact) #extract info to list
+    exact3<- toString(exact2) #turn list to string
+
+    exact.p<- strsplit(exact3, "Non-differentiation: Exact P value") #split string to find p-value
+    exact.p2<- exact.p[[1]][2] #select p-value info
+    exact.p3<- substr(exact.p2,4,10) #select p-value
+    rep<- cbind(rep,exact.p3)
+    
+    pair.fst<- data[["//PairFstMat"]]
+    pair.fst2<- xmlToList(pair.fst) #extract info to list
+    pair.fst3<- toString(pair.fst2) #turn list to string
+    pair.fst4<- strsplit(pair.fst3, split="\n") #separate by line
+    pair.fst4<- str_trim(pair.fst4[[1]][5:(length(reg.names3)+5)]) #remove unnecessary row
+    pair.fst5<- strsplit(pair.fst4, "\\s+") #separate by space
+
+    names.fst<- c()
+    pair.fst.vector<- c()
+    for(r in 2:(length(reg.names3))+1){
+      for(s in 2:(r-1)){
+        pair.fst.vector<- append(pair.fst.vector, pair.fst5[[r]][s], after=length(pair.fst.vector)) #append each pairwise value to end of vector
+        temp.name<- sprintf("Fst_%s:%s", reg.names4[s], reg.names4[r])
+        names.fst<- append(names.fst, temp.name, after=length(names.fst)) #make vector of comparison labels
+      }
+    }
+    
+    
+    pair.p<- data[["//PairFstPvalMat"]]
+    pair.p2<- xmlToList(pair.p) #extract info to list
+    pair.p3<- toString(pair.p2) #turn list to string
+    pair.p4<- strsplit(pair.p3, split="\n") #separate by line
+    pair.p4<- str_trim(pair.p4[[1]][3:(length(reg.names3)+4)]) #remove unnecessary row
+    pair.p5<- strsplit(pair.p4, "\\s+") #separate by space
+
+    pair.p<- data[["//PairFstPvalMat"]]
+    pair.p2<- xmlToList(pair.p) #extract info to list
+    pair.p3<- toString(pair.p2) #turn list to string
+    pair.p4<- strsplit(pair.p3, split="\n") #separate by line
+    pair.p4<- str_trim(pair.p4[[1]][3:(length(reg.names3)+3)]) #remove unnecessary row
+    pair.p5<- strsplit(pair.p4, "\\s+") #separate by space
+
+
+    names.p<- c()
+    pair.p.vector<- c()
+    for(r in 2:(length(reg.names3))+1){
+      for(s in 2:(r-1)){
+        pair.p.vector<- append(pair.p.vector, pair.p5[[r]][s], after=length(pair.p.vector)) #append each pairwise value to end of vector
+        temp.name<- sprintf("P_%s:%s", reg.names4[s], reg.names4[r])
+        names.p<- append(names.p, temp.name, after=length(names.p)) #make vector of comparison labels
+    
+      }
+    }
+    pair.p.vector<- sapply(strsplit(as.character(pair.p.vector), split= "+", fixed=TRUE), function(x) (x[1])) #remove uncertainty of p-value
+    
+    pair.vector<- c()
+    pair.names<- c()
+    for (v in 1:length(pair.fst.vector)){
+      pair.vector<- append(pair.vector, pair.fst.vector[v], after=length(pair.vector)) #add fst for 1 comparison
+      pair.vector<- append(pair.vector, pair.p.vector[v], after=length(pair.vector)) #add p-value for 1 comparison
+      pair.names<- append(pair.names, names.fst[v], after=length(pair.names)) #add fst name for 1 comparison
+      pair.names<- append(pair.names, names.p[v], after=length(pair.names)) #add p-value name for 1 comparison
+    }
+    pair.mat<- matrix(pair.vector, nrow=1, ncol=length(pair.vector)) #turn to matrix
+    pair.df<- as.data.frame(pair.mat) #convert to df
+    colnames(pair.df)<- pair.names #add column names
+    pair.df[]<- lapply(pair.df, as.character)
+    pair.df[]<- lapply(pair.df, as.numeric) #make all values numeric
+    
+
+    rep<- data.frame(rep, pair.df) #add pairwise comparisons to rep df
+    
+    reps<- rbind(reps,rep) #append each rep to dataframe
+
+    setwd(sprintf("%s", w.d)) #return to arp directory
+
+    file.remove("arl_run.txt", "arlequin.ini", "randseed.txt") #remove unnecessary files
+    
+    
+    
+    j=j+1
+    
+  }
+  
+  reps.names<- c("Rep", "AMOVA_Fst", "AMOVA_pvalue", "Exact_pvalue")
+  reps.names2<- append(reps.names, pair.names, after=length(reps.names))
+  colnames(reps)<- reps.names2 #change column names
+  
+  fileConn<- file("Results_Reps.csv", "wt") 
+  write.table(reps, file = fileConn, quote = FALSE, sep = ",", na = "", row.names = FALSE, col.names = TRUE)
+  close(fileConn)
+  
+  reps<- read.csv("Results_Reps.csv", header=TRUE, sep=",")
+  
+  mean.fst<- mean(reps$AMOVA_Fst) #mean of rep fst values
+  sd.fst<- sd(reps$AMOVA_Fst) #absolute sd of rep fst values
+  sums<- cbind(mean.fst, sd.fst)
+  sd.fst2<- sd.fst/mean.fst #relative sd of rep fst values
+  sums<- cbind(sums, sd.fst2)
+  mean.p<- mean(reps$AMOVA_pvalue)
+  sums<- cbind(sums, mean.p)
+  sd.p<- sd(reps$AMOVA_pvalue)
+  sums<- cbind(sums, sd.p)
+  sig.pos<- c((which(reps$AMOVA_pvalue <= 0.05))) #store which values are significant
+  sig<- length(sig.pos)/n.reps #divide by number of reps
+  sums<- cbind(sums, sig)
+  
+  mean.pe<- mean(reps$Exact_pvalue)
+  sums<- cbind(sums, mean.pe)
+  sd.pe<- sd(reps$Exact_pvalue)
+  sums<- cbind(sums, sd.pe)
+  sig.pose<- c((which(reps$Exact_pvalue <= 0.05)))
+  sig.e<- length(sig.pose)/n.reps
+  sums<- cbind(sums, sig.e)
+  
+  pairs<- reps[5:length(reps)]
+  pairs.fst<- pairs[c(TRUE,FALSE)]
+  pairs.p<- pairs[c(FALSE,TRUE)]
+  names.sums.fst<- colnames(pairs.fst)
+  names.sums.p<- colnames(pairs.p)
+  
+  mean.pair.fst<- apply(pairs.fst, 2, mean)
+  sd.pair.fst<- apply(pairs.fst, 2, sd)
+  relsd.pair.fst<- sd.pair.fst/mean.pair.fst
+  mean.pair.p<- apply(pairs.p, 2, mean)
+  sd.pair.p<- apply(pairs.p, 2, sd)
+  
+  pairs.sums<- c()
+  names.pairs.sums<- c()
+  for (s in 1:length(pairs.fst)){
+    pairs.sums<- append(pairs.sums, mean.pair.fst[s], after=length(pairs.sums)) #add mean fst
+    name.mean.fst<- sprintf("Mean_%s", names.sums.fst[s]) #create name
+    names.pairs.sums<- append(names.pairs.sums, name.mean.fst, after=length(names.pairs.sums)) #add name
+    pairs.sums<- append(pairs.sums, sd.pair.fst[s], after=length(pairs.sums)) #add sd fst
+    name.sd.fst<- sprintf("SD_%s", names.sums.fst[s]) #create name
+    names.pairs.sums<- append(names.pairs.sums, name.sd.fst, after=length(names.pairs.sums)) #add name
+    pairs.sums<- append(pairs.sums, relsd.pair.fst[s], after=length(pairs.sums)) #add relative sd
+    name.relsd.fst<- sprintf("RelSD_%s", names.sums.fst[s]) #create name
+    names.pairs.sums<- append(names.pairs.sums, name.relsd.fst, after=length(names.pairs.sums)) #add name
+    pairs.sums<- append(pairs.sums, mean.pair.p[s], after=length(pairs.sums)) #add mean p-value
+    name.mean.p<- sprintf("Mean_%s", names.sums.p[s]) #create name
+    names.pairs.sums<- append(names.pairs.sums, name.mean.p, after=length(names.pairs.sums)) #add name
+    pairs.sums<- append(pairs.sums, sd.pair.p[s], after=length(pairs.sums)) #add sd p-value
+    name.sd.p<- sprintf("SD_%s", names.sums.p[s]) #create name
+    names.pairs.sums<- append(names.pairs.sums, name.sd.p, after=length(names.pairs.sums)) #add name
+    sig.pairs.pos<- c(which(pairs.p[s] <= 0.05)) #which reps are significant
+    sig.pairs<- length(sig.pairs.pos)/n.reps #proportion of sig reps
+    pairs.sums<- append(pairs.sums, sig.pairs, after=length(pairs.sums)) #add proportion of sig reps
+    name.sig.p<- sprintf("Sig_%s", names.sums.p[s]) #create name
+    names.pairs.sums<- append(names.pairs.sums, name.sig.p, after=length(names.pairs.sums)) #add name
+  }
+  
+  pairs.sums.mat<- matrix(pairs.sums, ncol=length(pairs.sums)) #convert to matrix
+  pairs.sums.df<- as.data.frame(pairs.sums.mat) #convert to df
+  sums<- cbind(sums, pairs.sums.df) #add pairwise comparisons to summary df
+  
+  names.sums<- c("Mean_Fst", "SD_Fst", "RelSD_Fst", "AMOVA_Mean_P", "AMOVA_sd_P", "AMOVA_Sig_P", "Exact_Mean_P", "Exact_sd_P", "Exact_Sig_P")
+  names.sums2<- append(names.sums, names.pairs.sums, after=length(names.sums)) #add pairwise names to sumary names
+  colnames(sums)<- names.sums2  
+      
+  fileConn<- file("Results_Summary.csv", "wt") 
+  write.table(sums, file = fileConn, quote = FALSE, sep = ",", na = "", row.names = FALSE, col.names = TRUE)
+  close(fileConn)
+  
+  
+  if (dir.exists("arp")==FALSE){
+    dir.create("arp")
+  }
+  
+  w.d2<- sprintf("%s/arp/", w.d)
+  arp.files<- Sys.glob("*.arp")
+  file.copy(arp.files, w.d2, overwrite=TRUE, recursive=FALSE, copy.mode=TRUE, copy.date=TRUE)
+  file.remove(arp.files)
+  #res.files<- Sys.glob("*.res")
+  #Sys.chmod(res.files, mode="777")
+  #file.copy(res.files, "C:/Users/coc.drew.duckett/Desktop/arlecore/results/",  overwrite=TRUE, recursive=FALSE, copy.mode=TRUE, copy.date=TRUE)
+  #file.remove(res.files)
+  
+    
+}
+
+```
