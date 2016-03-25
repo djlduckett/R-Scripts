@@ -32,6 +32,3 @@ np- the number of populations in the dataset
 md- the missing data character in your dataset, in quotes "". Often "?", "0", or "-9" 
 Examples are provided in the script file.
 
-* This script is provided for free and is without warranty. The author is not
-responsible for any computer hardware or software malfunctions or any errant
-results.
