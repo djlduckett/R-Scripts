@@ -12,7 +12,7 @@ Requirements:
 
 Formatting: 
 The first column must contain the sample name. Second column must contain the 
-population name. For microsatellites and SNPS, each locus must be represented 
+population name. For microsatellites and SNPs, each locus must be represented 
 by two columns, one allele in each. For mitochondrial sequence, the entire 
 sequence must be in the third column. See provided examples.
 
