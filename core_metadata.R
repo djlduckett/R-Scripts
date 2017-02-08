@@ -1,7 +1,6 @@
 test_rwl <- read.rwl("007.1.00")
 
 
-
 core_metadata <- function(file_name, project, location, PI, label){
   
   #Load required libraries
@@ -13,7 +12,6 @@ core_metadata <- function(file_name, project, location, PI, label){
   df_name <- data.frame(stringsAsFactors = FALSE)
   #assign(label, df_name)
   
-  yr_range <- list()
   i = 1
   for (i in 1:ncol(rwl_df)){ #for each sample
     
@@ -37,6 +35,15 @@ core_metadata <- function(file_name, project, location, PI, label){
   colnames(df_name) <- c("Project", "Location", "PI", "Sample", "Species", "YR_Start", "YR_End") #rename columns
   return(df_name)
 }
+
+
+#get all raw file names to run
+dat_files <- Sys.glob("*") #get all file names in directory
+rem_files <- dat_files[grep("*.xlsx$", dat_files)] #get file names to remove
+dat_files <- dat_files[!dat_files %in% rem_files] #remove those files with .xlsx
+
+
+
 
 core_metadata("007.1.00", "Project", "Location", "PI", "label")
 
