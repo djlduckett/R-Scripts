@@ -2,28 +2,40 @@ test_rwl <- read.rwl("007.1.00")
 
 
 
-core_years <- function(rwl_df){
+core_years <- function(rwl_df, project, location, PI, label){
   
   #Load required libraries
   library(dplR)
   
+  #create data frame for data
+  df_name <- data.frame(stringsAsFactors = FALSE)
+  #assign(label, df_name)
+  
   yr_range <- list()
   i = 1
-  for (i in 1:ncol(rwl_df)){
+  for (i in 1:ncol(rwl_df)){ #for each sample
+    
+    #get sample name
+    samp_name <- names(rwl_df[i])
+    
+    #get species name
+    species_name <- gsub("\\d", "", samp_name) #replace digits
+    
+    #get start and end years
     no_na <- which(!is.na(rwl_df[,i]), arr.ind = TRUE) #get indices of rows without NA
     begin <- row.names(rwl_df[no_na[1],]) #get year of first datapoint
     end <- row.names(rwl_df[length(no_na),]) #get year of last datapoint
     
-    range_list <- list()
-    range_list <- append(range_list, begin, after = length(range_list))
-    range_list <- append(range_list, end, after = length(range_list))
-    yr_range <- append(yr_range, range_list, after = length(yr_range))
+    #combine data in single df
+    data_list <- list(project, location, PI, samp_name, species_name, begin, end) #combine data in list
+    df_name <- rbind(df_name, data_list, stringsAsFactors = FALSE) #add list as row
     
     i = i + 1
   }
-  return(yr_range)
+  colnames(df_name) <- c("Project", "Location", "PI", "Sample", "Species", "YR_Start", "YR_End") #rename columns
+  return(df_name)
 }
 
-core_years(test_rwl)
+core_years(test_rwl, "Project", "Location", "PI", "label")
 
 
