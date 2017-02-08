@@ -2,10 +2,12 @@ test_rwl <- read.rwl("007.1.00")
 
 
 
-core_years <- function(rwl_df, project, location, PI, label){
+core_metadata <- function(file_name, project, location, PI, label){
   
   #Load required libraries
   library(dplR)
+  
+  rwl_df <- read.rwl(file_name) #read in data
   
   #create data frame for data
   df_name <- data.frame(stringsAsFactors = FALSE)
@@ -24,7 +26,7 @@ core_years <- function(rwl_df, project, location, PI, label){
     #get start and end years
     no_na <- which(!is.na(rwl_df[,i]), arr.ind = TRUE) #get indices of rows without NA
     begin <- row.names(rwl_df[no_na[1],]) #get year of first datapoint
-    end <- row.names(rwl_df[length(no_na),]) #get year of last datapoint
+    end <- row.names(rwl_df[no_na[length(no_na)],]) #get year of last datapoint
     
     #combine data in single df
     data_list <- list(project, location, PI, samp_name, species_name, begin, end) #combine data in list
@@ -36,6 +38,6 @@ core_years <- function(rwl_df, project, location, PI, label){
   return(df_name)
 }
 
-core_years(test_rwl, "Project", "Location", "PI", "label")
+core_metadata("007.1.00", "Project", "Location", "PI", "label")
 
 
